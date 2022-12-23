@@ -1,68 +1,51 @@
 const Tasks = require("../models/tasks");
-const getAllTasks = async (req, res) => {
-  try {
-    const tasks = await Tasks.find({});
-    res.status(200).json({ tasks }); // status code 200 is for successful post request
-  } catch (err) {
-    res.status(500).json({ msg: err });
-  }
-};
+const asyncWrapper = require("../middleware/async");
+const {createCustomError} = require('../errors/custom-error');
 
-const createTask = async (req, res) => {
-  try {
-    const createdTask = await Tasks.create(req.body);
-    res.status(201).json({ task: createdTask }); // status code 201 is for successful post request
-  } catch (err) {
-    res.status(500).json({ msg: err });
-  }
-};
+const getAllTasks = asyncWrapper(async (req, res) => {
+  const tasks = await Tasks.find({});
+  res.status(200).json({ tasks }); // status code 200 is for successful post request
+}); //asyncWrapper is used to handle the try catch block
 
-const getTask = async (req, res) => {
-  try {
-    const getoneTask = await Tasks.findOne({ _id: req.params.id });
-    // getoneTask returns null if id not matched
-    if (!getoneTask) {
-      return res.status(404).json({ meg: `no data for id: ${req.params.id}` });
+const createTask = asyncWrapper(async (req, res) => {
+  const createdTask = await Tasks.create(req.body);
+  res.status(201).json({ task: createdTask }); // status code 201 is for successful post request
+});
+
+const getTask = asyncWrapper(async (req, res, next) => {
+  const getoneTask = await Tasks.findOne({ _id: req.params.id });
+  // getoneTask returns null if id not matched
+  if (!getoneTask) {
+    return next(createCustomError(`no data for id: ${req.params.id}`, 404))
+  }
+
+  res.status(200).json({ task: getoneTask });
+});
+
+const updateTask = asyncWrapper(async (req, res, next) => {
+  const updateTask = await Tasks.findOneAndUpdate(
+    { _id: req.params.id },
+    req.body,
+    {
+      new: true,
+      runValidators: true,
     }
-
-    res.status(200).json({ task: getoneTask });
-  } catch (err) {
-    res.status(500).json({ msg: err });
+  );
+  if (!updateTask) {
+    return next(createCustomError(`no data for id: ${req.params.id}`, 404))
   }
-};
 
-const updateTask = async (req, res) => {
-  try {
-    const updateTask = await Tasks.findOneAndUpdate(
-      { _id: req.params.id },
-      req.body,
-      {
-        new:true,
-        runValidators:true
-      }
-    );
-    if (!updateTask) {
-      return res.status(404).json({ meg: `no data for id: ${req.params.id}` });
-    }
+  res.status(200).json({ task: updateTask });
+});
 
-    res.status(200).json({ task: updateTask });
-  } catch (err) {
-    res.status(500).json({ msg: err });
+const deleteTask = asyncWrapper(async (req, res, next) => {
+  const deleteTask = await Tasks.findOneAndDelete({ _id: req.params.id });
+
+  if (!deleteTask) {
+    return next(createCustomError(`no data for id: ${req.params.id}`, 404))
   }
-};
 
-const deleteTask = async (req, res) => {
-  try {
-    const deleteTask = await Tasks.findOneAndDelete({ _id: req.params.id });
-
-    if (!deleteTask) {
-      return res.status(404).json({ meg: `no data for id: ${req.params.id}` });
-    }
-
-    res.status(200).json({task: deleteTask});
-  } catch (err) {
-    res.status(500).json({ msg: err });
-  }
-};
+  res.status(200).json({ task: deleteTask });
+});
 
 module.exports = { getAllTasks, createTask, getTask, updateTask, deleteTask };
